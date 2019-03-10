@@ -1,0 +1,12 @@
+{
+  "name": "dms-assistant",
+  "version": "1.0.0",
+  "description": "DM's Assistant",
+  "main": "bot.js",
+  "author": "Thad Ward",
+  "dependencies": {
+    "discord.io": "https://github.com/woor/discord.io/tarball/gateway_v6",
+    "dotenv": "^6.2.0",
+    "xmlhttprequest": "^1.8.0"
+  }
+}
