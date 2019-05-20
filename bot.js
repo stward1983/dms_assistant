@@ -23,12 +23,45 @@ discord.on('message', (user, userID, channelID, message, event) => {
     let request = new XMLHttpRequest();
     switch (args[0]) {
 
-      // Display text explaining the different DM's Assistant commands.
+        // Roll a check for every party member.
+      case 'check':
+        let request_url = process.env.BASE_URL + 'check/' + args[1] + '/json';
+        if (typeof args[2] !== 'undefined' && args[2].length > 0) {
+          request_url += '/' + encodeURIComponent(args[2]);
+        }
+        request.open('GET', request_url, false);
+        request.send(null);
+        output = JSON.parse(request.responseText);
+        if (args[1] === 'initiative') {
+          discord.sendMessage({
+            to: discord.channelID,
+            message: "Rolling Initiative...\n" + output.output
+          }, (error, response) => {
+            if (typeof last_initiative[channelID] !== 'undefined') {
+              discord.deletePinnedMessage({
+                channelID: discord.channelID,
+                messageID: last_initiative[channelID]
+              });
+            }
+            discord.pinMessage({
+              channelID: discord.channelID,
+              messageID: response.id
+            });
+            last_initiative[channelID] = response.id;
+          });
+        }
+        else {
+          discord.simpleMessage('Rolling ' + output.check_name + "...\n" + output.output);
+        }
+        break;
+
+        // Display text explaining the different DM's Assistant commands.
       case 'help':
         discord.simpleMessage("Use me to help manage life at the gaming table..\n" +
-          "**!hp** - Keep track of named hit point totals. Use \"!hp help\" for a list of subcommands.\n" +
-          "**!roll Check Others** - Roll the given check (e.g., initiative, perception) for all characters in the party and display them in order from highest to lowest. You can add extra characters to the check as an optional third parameter using comma-separated name|modifier pairs (e.g., Character1|+5,Character2|-3).\n" +
-          "**!show Thing** - Show the name, description, and image (if available) for the given encounter, location, or NPC in chat. Note that only the DM can show things that haven't been published on the website, and they are published for everyone's later reference when he does.\n"
+            "**!check Check Others** - Roll the given check (e.g., initiative, perception) for all characters in the party and display them in order from highest to lowest. You can add extra characters to the check as an optional third parameter using comma-separated name|modifier pairs (e.g., Character1|+5,Character2|-3).\n" +
+            "**!hp** - Keep track of named hit point totals. Use \"!hp help\" for a list of subcommands.\n" +
+            "**!roll Dice** - Roll the given dice expression (e.g., 1d10, 2d8+4, etc.).\n" +
+            "**!show Thing** - Show the name, description, and image (if available) for the given encounter, location, or NPC in chat. Note that only the DM can show things that haven't been published on the website, and they are published for everyone's later reference when he does.\n"
         );
         break;
 
@@ -48,11 +81,11 @@ discord.on('message', (user, userID, channelID, message, event) => {
           // Display text explaining the different hit point tracker commands.
           case 'help':
             discord.simpleMessage("Use the !hp feature to track hit points.\n" +
-              "**!hp set Name Total** - Start tracking a new set of hit points with the given name and total.\n" +
-              "**!hp Name** - Show the current hit point total for the given name.\n" +
-              "**!hp Name Amount** - Change the current hit point total for the given name by the given amount. Use positive amounts for healing and negative amounts for damage.\n" +
-              "**!hp list** - Show all of your hit point trackers.\n" +
-              "**!hp clear** - Clear all of your hit point trackers."
+                "**!hp set Name Total** - Start tracking a new set of hit points with the given name and total.\n" +
+                "**!hp Name** - Show the current hit point total for the given name.\n" +
+                "**!hp Name Amount** - Change the current hit point total for the given name by the given amount. Use positive amounts for healing and negative amounts for damage.\n" +
+                "**!hp list** - Show all of your hit point trackers.\n" +
+                "**!hp clear** - Clear all of your hit point trackers."
             );
             break;
 
@@ -110,36 +143,38 @@ discord.on('message', (user, userID, channelID, message, event) => {
         }
         break;
 
-      // Roll a check for every party member.
+      // Roll the given dice expression.
       case 'roll':
-        let request_url = process.env.BASE_URL + 'check/' + args[1] + '/json';
-        if (typeof args[2] !== 'undefined' && args[2].length > 0) {
-          request_url += '/' + encodeURIComponent(args[2]);
-        }
-        request.open('GET', request_url, false);
-        request.send(null);
-        output = JSON.parse(request.responseText);
-        if (args[1] === 'initiative') {
-          discord.sendMessage({
-            to: discord.channelID,
-            message: "Rolling Initiative...\n" + output.output
-          }, (error, response) => {
-            if (typeof last_initiative[channelID] !== 'undefined'){
-              discord.deletePinnedMessage({
-                channelID: discord.channelID,
-                messageID: last_initiative[channelID]
-              });
+        let multiplier = 1;
+        let result = 0;
+        let rolls = [];
+        let roll;
+        args.shift();
+        args.join().replace(/[^\d+\-d]/gi, '').split(/(?=[+-])/).forEach((roll_part) => {
+          multiplier = 1;
+          if (roll_part[1] === '-') {
+            multiplier = -1;
+            roll_part = roll_part.substring(1);
+          }
+          else if (roll_part[0] === '+') {
+            roll_part = roll_part.substring(1);
+          }
+          if (roll_part.indexOf('d') > -1) {
+            let [dice, sides] = roll_part.split('d');
+            for (var i = 0; i < dice; i++) {
+              roll = Math.floor(Math.random() * sides) + 1;
+              rolls.push('d' + sides + ' (' + roll + ')');
+              result += roll * multiplier;
             }
-            discord.pinMessage({
-              channelID: discord.channelID,
-              messageID: response.id
-            });
-            last_initiative[channelID] = response.id;
-          });
+          }
+          else {
+            result += Number(roll_part) * multiplier;
+          }
+        });
+        if (rolls.length > 0) {
+          discord.simpleMessage('Rolls: ' + rolls.join(', '));
         }
-        else {
-          discord.simpleMessage('Rolling ' + output.check_name + "...\n" + output.output);
-        }
+        discord.simpleMessage('Result: ' + result);
         break;
 
       // Show the name, description, and image of the given character,
