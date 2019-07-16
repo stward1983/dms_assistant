@@ -15,6 +15,7 @@ discord.on('ready', (event) => {
 
 // Listen for commands beginning with "!".
 let last_initiative = {};
+let timers = {};
 discord.on('message', (user, userID, channelID, message, event) => {
   if (message.substring(0, 1) === '!') {
     discord.channelID = channelID;
@@ -23,7 +24,7 @@ discord.on('message', (user, userID, channelID, message, event) => {
     let request = new XMLHttpRequest();
     switch (args[0]) {
 
-        // Roll a check for every party member.
+      // Roll a check for every party member.
       case 'check':
         let request_url = process.env.BASE_URL + 'check/' + args[1] + '/json';
         if (typeof args[2] !== 'undefined' && args[2].length > 0) {
@@ -55,13 +56,14 @@ discord.on('message', (user, userID, channelID, message, event) => {
         }
         break;
 
-        // Display text explaining the different DM's Assistant commands.
+      // Display text explaining the different DM's Assistant commands.
       case 'help':
         discord.simpleMessage("Use me to help manage life at the gaming table..\n" +
             "**!check Check Others** - Roll the given check (e.g., initiative, perception) for all characters in the party and display them in order from highest to lowest. You can add extra characters to the check as an optional third parameter using comma-separated name|modifier pairs (e.g., Character1|+5,Character2|-3).\n" +
             "**!hp** - Keep track of named hit point totals. Use \"!hp help\" for a list of subcommands.\n" +
             "**!roll Dice** - Roll the given dice expression (e.g., 1d10, 2d8+4, etc.).\n" +
-            "**!show Thing** - Show the name, description, and image (if available) for the given encounter, location, or NPC in chat. Note that only the DM can show things that haven't been published on the website, and they are published for everyone's later reference when he does.\n"
+            "**!show Thing** - Show the name, description, and image (if available) for the given encounter, location, or NPC in chat. Note that only the DM can show things that haven't been published on the website, and they are published for everyone's later reference when he does.\n" +
+            "**!timer Time** - Set a timer for the given amount of time, with a default of one minute. Append \"s\" to set a number of seconds, or \"m\" for minutes (e.g., \"2m\" for two minutes, \"45s\" for 45 seconds)."
         );
         break;
 
@@ -171,10 +173,10 @@ discord.on('message', (user, userID, channelID, message, event) => {
             result += Number(roll_part) * multiplier;
           }
         });
+        discord.simpleMessage('Result: ' + result);
         if (rolls.length > 0) {
           discord.simpleMessage('Rolls: ' + rolls.join(', '));
         }
-        discord.simpleMessage('Result: ' + result);
         break;
 
       // Show the name, description, and image of the given character,
@@ -191,6 +193,34 @@ discord.on('message', (user, userID, channelID, message, event) => {
         else {
           discord.simpleMessage(output.output.replace('&nbsp;', ' '));
         }
+        break;
+
+      // Set a timer.
+      case 'timer':
+        let duration = (typeof args[1] !== 'undefined') ? args[1] : '1m';
+        let interval;
+        if (duration.substring(duration.length - 1) === 's'){
+          interval = Number(duration.substring(0, duration.length - 1)) * 1000;
+          duration = duration.substring(0, duration.length - 1);
+          duration += (duration === '1') ? ' second' : ' seconds';
+        }
+        else if (duration.substring(duration.length - 1) === 'm'){
+          interval = Number(duration.substring(0, duration.length - 1)) * 60 * 1000;
+          duration = duration.substring(0, duration.length - 1);
+          duration += (duration === '1') ? ' minute' : ' minutes';
+        }
+        else {
+          interval = Number(duration) * 60000;
+          duration = Number(duration) + ' minutes';
+        }
+        if (typeof timers[user] !== 'undefined') {
+          clearInterval(timers[user]);
+        }
+        discord.simpleMessage('Setting a timer for ' + duration + '.');
+        timers[user] = setInterval(() => {
+          discord.simpleMessage('Time\'s up!');
+          clearInterval(timers[user]);
+        }, interval);
         break;
 
       // Show an error for unsupported commands.
