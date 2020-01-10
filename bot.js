@@ -27,39 +27,34 @@ discord.on('message', (user, userID, channelID, message, event) => {
       // Roll a check for every party member.
       case 'check':
         let request_url = process.env.BASE_URL + 'check/' + args[1] + '/json';
-        if (typeof args[2] !== 'undefined' && args[2].length > 0) {
-          request_url += '/' + encodeURIComponent(args[2]);
+        let dc;
+        let others = [];
+        for (let i = 2; i < args.length; i++) {
+          if (typeof args[i] !== 'undefined' && args[i].length > 0) {
+            if (/^\d+$/.test(args[i].trim())) {
+              dc = Number(args[i]);
+            }
+            else {
+              others.push(args[i]);
+            }
+          }
+        }
+        if (dc) {
+          request_url += '?dc=' + dc;
+        }
+        if (others) {
+          request_url += ((dc) ? '&' : '?') + 'others=' + encodeURIComponent(others.join(','));
         }
         request.open('GET', request_url, false);
         request.send(null);
         output = JSON.parse(request.responseText);
-        if (args[1] === 'initiative') {
-          discord.sendMessage({
-            to: discord.channelID,
-            message: "Rolling Initiative...\n" + output.output
-          }, (error, response) => {
-            if (typeof last_initiative[channelID] !== 'undefined') {
-              discord.deletePinnedMessage({
-                channelID: discord.channelID,
-                messageID: last_initiative[channelID]
-              });
-            }
-            discord.pinMessage({
-              channelID: discord.channelID,
-              messageID: response.id
-            });
-            last_initiative[channelID] = response.id;
-          });
-        }
-        else {
-          discord.simpleMessage('Rolling ' + output.check_name + "...\n" + output.output);
-        }
+        discord.simpleMessage('Rolling ' + output.check_name + "...\n" + output.output);
         break;
 
       // Display text explaining the different DM's Assistant commands.
       case 'help':
         discord.simpleMessage("Use me to help manage life at the gaming table..\n" +
-            "**!check Check Others** - Roll the given check (e.g., initiative, perception) for all characters in the party and display them in order from highest to lowest. You can add extra characters to the check as an optional third parameter using comma-separated name|modifier pairs (e.g., Character1|+5,Character2|-3).\n" +
+            "**!check Check Extra** - Roll the given check (e.g., perception) for all characters in the party and display them in order from highest to lowest. If you add a number after the check name, that becomes the DC of the check and (critical) success or failure is also computed. You can also add any number of name|modifier parameters to add arbitrary characters to the check. Initiative, for example, could be rolled like this: !check perception Monster1|+2 Monster2|-1\n" +
             "**!hp** - Keep track of named hit point totals. Use \"!hp help\" for a list of subcommands.\n" +
             "**!roll Dice** - Roll the given dice expression (e.g., 1d10, 2d8+4, etc.).\n" +
             "**!show Thing** - Show the name, description, and image (if available) for the given encounter, location, or NPC in chat. Note that only the DM can show things that haven't been published on the website, and they are published for everyone's later reference when he does.\n" +
@@ -199,12 +194,12 @@ discord.on('message', (user, userID, channelID, message, event) => {
       case 'timer':
         let duration = (typeof args[1] !== 'undefined') ? args[1] : '1m';
         let interval;
-        if (duration.substring(duration.length - 1) === 's'){
+        if (duration.substring(duration.length - 1) === 's') {
           interval = Number(duration.substring(0, duration.length - 1)) * 1000;
           duration = duration.substring(0, duration.length - 1);
           duration += (duration === '1') ? ' second' : ' seconds';
         }
-        else if (duration.substring(duration.length - 1) === 'm'){
+        else if (duration.substring(duration.length - 1) === 'm') {
           interval = Number(duration.substring(0, duration.length - 1)) * 60 * 1000;
           duration = duration.substring(0, duration.length - 1);
           duration += (duration === '1') ? ' minute' : ' minutes';
